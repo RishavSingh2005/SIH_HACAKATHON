@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Roboto+Slab:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-display: "Roboto Slab", serif;
+  --font-sans: "Work Sans", sans-serif;
+  --font-mono: "DM Mono", monospace;
+}
+
+html, body, #root { min-height: 100%; }
+body { margin: 0; font-family: "Work Sans", sans-serif; }
+svg { width: 1em; height: 1em; }
+
+.risk-pill { display: inline-flex; align-items: center; width: fit-content; border-radius: 999px; padding: .36rem .55rem; font-family: "DM Mono", monospace; font-size: 9px; font-weight: 500; letter-spacing: .1em; line-height: 1; }
+.risk-low { color: #174d35; background: #cce5cc; }.risk-moderate { color: #65500a; background: #f5e8ab; }.risk-high { color: #75291e; background: #f8d1c3; }.risk-critical { color: #fff; background: #a92f3c; }
+.bg-low { background: #67aa72; }.bg-moderate { background: #eac85a; }.bg-high { background: #e97451; }.bg-critical { background: #bd3947; }
+.leaflet-container { font-family: "Work Sans", sans-serif; }.leaflet-control-attribution { font-size: 9px; }.leaflet-tooltip { border: 0; border-radius: 7px; box-shadow: 0 4px 16px #14221f44; color: #14221f; font-family: "DM Mono", monospace; font-size: 10px; line-height: 1.6; }.leaflet-tooltip b { font-family: "Work Sans", sans-serif; font-size: 12px; }.map-overlay { box-shadow: 0 4px 16px #14221f22; }
+.range-input { appearance:none; height:4px; border-radius:999px; background:#57756c; cursor:pointer; }.range-input::-webkit-slider-thumb{appearance:none;width:17px;height:17px;border:2px solid #102a25;border-radius:50%;background:#caef47}.range-input::-moz-range-thumb{width:15px;height:15px;border:2px solid #102a25;border-radius:50%;background:#caef47}
