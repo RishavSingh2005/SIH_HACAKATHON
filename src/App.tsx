@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Circle, CircleMarker, MapContainer, TileLayer, Tooltip } from "react-leaflet";
+import { Circle, CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { serverUrl, supabase } from "./lib/supabase";
 
 type Village = {
+  region: string;
   name: string;
   ward: string;
   rainfall: number;
@@ -17,12 +18,34 @@ type Village = {
   elevation: number;
 };
 
+const regions = [
+  { name: "Himachal Pradesh", country: "India", center: [31.92, 77.2] as [number, number], hazards: "Flash flood · Landslide · Cloudburst" },
+  { name: "Uttarakhand", country: "India", center: [30.28, 78.45] as [number, number], hazards: "Flash flood · Landslide · Glacial lake outburst" },
+  { name: "Jammu & Kashmir", country: "India", center: [33.4, 75.6] as [number, number], hazards: "Landslide · Flash flood · Avalanche" },
+  { name: "Sikkim", country: "India", center: [27.42, 88.45] as [number, number], hazards: "Glacial lake outburst · Landslide · Flash flood" },
+  { name: "Darjeeling Hills", country: "India", center: [27.05, 88.27] as [number, number], hazards: "Landslide · Intense rainfall · Flash flood" },
+  { name: "Arunachal Pradesh", country: "India", center: [27.1, 93.62] as [number, number], hazards: "Flash flood · Landslide · River erosion" },
+  { name: "Nepal Himalaya", country: "Nepal", center: [28.24, 83.99] as [number, number], hazards: "Flash flood · Landslide · Glacial lake outburst" },
+];
+
 const villages: Village[] = [
-  { name: "Kharadi", ward: "Ward 04", rainfall: 61, soil: 79, slope: 32, water: 2.9, history: 8, lat: 31.993, lng: 77.183, elevation: 1332 },
-  { name: "Sainj", ward: "Ward 07", rainfall: 43, soil: 66, slope: 24, water: 1.7, history: 5, lat: 31.948, lng: 77.243, elevation: 1274 },
-  { name: "Shangarh", ward: "Ward 02", rainfall: 28, soil: 48, slope: 17, water: 0.8, history: 2, lat: 31.892, lng: 77.293, elevation: 1926 },
-  { name: "Ropa", ward: "Ward 09", rainfall: 52, soil: 73, slope: 29, water: 2.2, history: 6, lat: 31.844, lng: 77.178, elevation: 1765 },
-  { name: "Tirthan", ward: "Ward 11", rainfall: 36, soil: 57, slope: 21, water: 1.1, history: 3, lat: 31.888, lng: 77.113, elevation: 1520 },
+  { region: "Himachal Pradesh", name: "Kharadi", ward: "Ward 04", rainfall: 61, soil: 79, slope: 32, water: 2.9, history: 8, lat: 31.993, lng: 77.183, elevation: 1332 },
+  { region: "Himachal Pradesh", name: "Sainj", ward: "Ward 07", rainfall: 43, soil: 66, slope: 24, water: 1.7, history: 5, lat: 31.948, lng: 77.243, elevation: 1274 },
+  { region: "Himachal Pradesh", name: "Shangarh", ward: "Ward 02", rainfall: 28, soil: 48, slope: 17, water: 0.8, history: 2, lat: 31.892, lng: 77.293, elevation: 1926 },
+  { region: "Himachal Pradesh", name: "Ropa", ward: "Ward 09", rainfall: 52, soil: 73, slope: 29, water: 2.2, history: 6, lat: 31.844, lng: 77.178, elevation: 1765 },
+  { region: "Himachal Pradesh", name: "Tirthan", ward: "Ward 11", rainfall: 36, soil: 57, slope: 21, water: 1.1, history: 3, lat: 31.888, lng: 77.113, elevation: 1520 },
+  { region: "Uttarakhand", name: "Joshimath", ward: "Block A", rainfall: 48, soil: 70, slope: 35, water: 2.1, history: 7, lat: 30.557, lng: 79.565, elevation: 1875 },
+  { region: "Uttarakhand", name: "Uttarkashi", ward: "Ward 05", rainfall: 55, soil: 74, slope: 30, water: 2.5, history: 6, lat: 30.726, lng: 78.438, elevation: 1158 },
+  { region: "Jammu & Kashmir", name: "Kishtwar", ward: "Ward 02", rainfall: 41, soil: 62, slope: 37, water: 1.9, history: 6, lat: 33.313, lng: 75.767, elevation: 1638 },
+  { region: "Jammu & Kashmir", name: "Pahalgam", ward: "Ward 06", rainfall: 33, soil: 55, slope: 26, water: 1.4, history: 4, lat: 34.015, lng: 75.318, elevation: 2195 },
+  { region: "Sikkim", name: "Chungthang", ward: "Ward 03", rainfall: 58, soil: 76, slope: 34, water: 2.7, history: 8, lat: 27.607, lng: 88.645, elevation: 1790 },
+  { region: "Sikkim", name: "Rangpo", ward: "Ward 08", rainfall: 44, soil: 68, slope: 23, water: 2.0, history: 5, lat: 27.176, lng: 88.531, elevation: 260 },
+  { region: "Darjeeling Hills", name: "Kalimpong", ward: "Ward 11", rainfall: 47, soil: 71, slope: 28, water: 2.3, history: 6, lat: 27.063, lng: 88.47, elevation: 1247 },
+  { region: "Darjeeling Hills", name: "Darjeeling", ward: "Ward 17", rainfall: 39, soil: 64, slope: 25, water: 1.8, history: 5, lat: 27.041, lng: 88.267, elevation: 2042 },
+  { region: "Arunachal Pradesh", name: "Tawang", ward: "Sector 02", rainfall: 36, soil: 58, slope: 31, water: 1.5, history: 4, lat: 27.586, lng: 91.859, elevation: 3048 },
+  { region: "Arunachal Pradesh", name: "Pasighat", ward: "Ward 04", rainfall: 63, soil: 77, slope: 18, water: 3.0, history: 7, lat: 28.067, lng: 95.326, elevation: 155 },
+  { region: "Nepal Himalaya", name: "Pokhara", ward: "Ward 12", rainfall: 54, soil: 72, slope: 22, water: 2.8, history: 7, lat: 28.209, lng: 83.985, elevation: 822 },
+  { region: "Nepal Himalaya", name: "Manang", ward: "Ward 03", rainfall: 29, soil: 46, slope: 38, water: 1.0, history: 5, lat: 28.669, lng: 84.025, elevation: 3519 },
 ];
 
 const sensors = [
@@ -42,11 +65,18 @@ function calculateRisk(village: Village, rainOffset = 0, soilOffset = 0) {
   return { rain, soil, flood, landslide, score, level, lead };
 }
 
+function localExplanation(location: string, level: string, lead: number, rain: number, soil: number, slope: number) {
+  const drivers = [`rainfall intensity is ${rain} mm/h`, `soil saturation is ${soil}%`, `slope exposure is ${slope}°`];
+  return `• ${location} is assessed as ${level} in this simulated scenario.\n• Primary drivers: ${drivers.join("; ")}.\n• Planning window: approximately ${lead} minutes. ${level === "CRITICAL" ? "Stage local responders and review evacuation routes." : "Monitor stream crossings and confirm ward contacts."}\n\nGenerated locally from the displayed risk-engine inputs — not an official forecast.`;
+}
+
 function RiskPill({ level }: { level: string }) {
   return <span className={`risk-pill risk-${level.toLowerCase()}`}>{level}</span>;
 }
 
 const riskColor: Record<string, string> = { LOW: "#67aa72", MODERATE: "#eac85a", HIGH: "#e97451", CRITICAL: "#bd3947" };
+
+function MapViewport({ center }: { center: [number, number] }) { const map = useMap(); useEffect(() => { map.flyTo(center, 9, { duration: 0.65 }); }, [center, map]); return null; }
 
 function Icon({ name }: { name: "drop" | "layers" | "clock" | "pin" | "bell" | "arrow" }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -73,32 +103,35 @@ export default function App() {
 
 function Dashboard({ session, guest, onExitGuest }: { session: Session | null; guest: boolean; onExitGuest: () => void }) {
   const [selectedName, setSelectedName] = useState("Kharadi");
+  const [selectedRegion, setSelectedRegion] = useState("Himachal Pradesh");
   const [rainOffset, setRainOffset] = useState(0);
   const [soilOffset, setSoilOffset] = useState(0);
   const [sent, setSent] = useState(false);
   const [briefing, setBriefing] = useState("");
   const [briefingLoading, setBriefingLoading] = useState(false);
-  const selected = villages.find((v) => v.name === selectedName) ?? villages[0];
+  const activeRegion = regions.find((region) => region.name === selectedRegion) ?? regions[0];
+  const regionVillages = villages.filter((v) => v.region === activeRegion.name);
+  const selected = regionVillages.find((v) => v.name === selectedName) ?? regionVillages[0];
   const risk = useMemo(() => calculateRisk(selected, rainOffset, soilOffset), [selected, rainOffset, soilOffset]);
-  const ranked = useMemo(() => villages.map((v) => ({ ...v, risk: calculateRisk(v, v.name === selected.name ? rainOffset : 0, v.name === selected.name ? soilOffset : 0) })).sort((a, b) => b.risk.score - a.risk.score), [selected, rainOffset, soilOffset]);
+  const ranked = useMemo(() => regionVillages.map((v) => ({ ...v, risk: calculateRisk(v, v.name === selected.name ? rainOffset : 0, v.name === selected.name ? soilOffset : 0) })).sort((a, b) => b.risk.score - a.risk.score), [regionVillages, selected, rainOffset, soilOffset]);
   const action = risk.level === "CRITICAL" ? "Begin evacuation of low-lying homes and close the bridge approach." : risk.level === "HIGH" ? "Pre-position response teams and alert households near the stream." : "Keep local volunteers on watch and verify drainage routes.";
   const authHeaders = session ? { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` } : undefined;
   const queueAlert = async () => { setSent(true); if (authHeaders) await fetch(`${serverUrl}/alerts`, { method: "POST", headers: authHeaders, body: JSON.stringify({ location: selected.name, level: risk.level, leadTime: risk.lead, action }) }); };
-  const generateBriefing = async () => { if (!authHeaders) { setBriefing("AI briefing is available after signing in. Guest mode keeps scenarios private to this browser."); return; } setBriefingLoading(true); setBriefing(""); try { const response = await fetch(`${serverUrl}/briefing`, { method: "POST", headers: authHeaders, body: JSON.stringify({ location: selected.name, risk: risk.level, leadTime: risk.lead, rainfall: risk.rain, soil: risk.soil, slope: selected.slope }) }); const data = await response.json(); setBriefing(data.briefing ?? data.error ?? "Briefing unavailable."); } finally { setBriefingLoading(false); } };
+  const generateBriefing = async () => { const fallback = localExplanation(selected.name, risk.level, risk.lead, risk.rain, risk.soil, selected.slope); if (!authHeaders) { setBriefing(fallback); return; } setBriefingLoading(true); setBriefing(""); try { const response = await fetch(`${serverUrl}/briefing`, { method: "POST", headers: authHeaders, body: JSON.stringify({ location: selected.name, risk: risk.level, leadTime: risk.lead, rainfall: risk.rain, soil: risk.soil, slope: selected.slope }) }); const data = await response.json(); setBriefing(response.ok && data.briefing ? data.briefing : fallback); } catch { setBriefing(fallback); } finally { setBriefingLoading(false); } };
 
   return (
-    <main className="min-h-full bg-[#e9ece6] text-[#14221f] selection:bg-[#caef47]">
-      <header className="border-b border-[#14221f]/15 bg-[#102a25] text-[#f4f5ed]">
+    <main className="pravaah-shell min-h-full text-[#14221f] selection:bg-[#caef47]">
+      <header className="sticky top-0 z-[1000] border-b border-[#14221f]/15 bg-[#102a25] text-[#f4f5ed] shadow-[0_2px_14px_rgba(0,0,0,.14)]">
         <div className="mx-auto flex max-w-[1560px] items-center justify-between px-5 py-4 lg:px-8">
           <div className="flex items-center gap-3"><div className="grid size-9 place-items-center rounded-full bg-[#caef47] text-[#102a25]"><Icon name="drop" /></div><div><div className="font-display text-[22px] leading-none tracking-[-.04em]">PRAVAAH</div><div className="mt-1 font-mono text-[9px] uppercase tracking-[.16em] text-[#b7c8c2]">Early warning field console</div></div></div>
-          <div className="hidden items-center gap-7 md:flex"><span className="font-mono text-[10px] uppercase tracking-[.12em] text-[#b7c8c2]">Himachal Pradesh / Kullu</span><span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.12em]"><i className="size-2 rounded-full bg-[#caef47]" /> {guest ? "Guest simulation" : "Responder session"}</span></div>
+          <div className="hidden items-center gap-7 md:flex"><span className="font-mono text-[10px] uppercase tracking-[.12em] text-[#b7c8c2]">{activeRegion.name} / {activeRegion.country}</span><span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.12em]"><i className="size-2 rounded-full bg-[#caef47]" /> {guest ? "Guest simulation" : "Responder session"}</span></div>
           <div className="flex items-center gap-3"><span className="hidden font-mono text-[9px] uppercase tracking-[.1em] text-[#b7c8c2] md:inline">{guest ? "Guest workspace" : session?.user.email}</span><button onClick={() => guest ? onExitGuest() : supabase.auth.signOut()} className="rounded-full border border-white/20 px-3 py-2 font-mono text-[9px] uppercase tracking-[.1em] hover:bg-white/10">{guest ? "Sign in" : "Sign out"}</button><button className="grid size-9 place-items-center rounded-full border border-white/20 hover:bg-white/10" aria-label="Notifications"><Icon name="bell" /></button></div>
         </div>
       </header>
 
       <div className="mx-auto max-w-[1560px] px-5 py-5 lg:px-8 lg:py-7">
         <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-end">
-          <div><p className="font-mono text-[10px] font-medium uppercase tracking-[.16em] text-[#517068]">District risk overview · 27 Aug 2026 · 14:32 IST</p><h1 className="mt-2 font-display text-3xl tracking-[-.045em] md:text-[42px]">Catchment intelligence, <em>made actionable.</em></h1></div>
+          <div className="title-block"><p className="font-mono text-[10px] font-medium uppercase tracking-[.16em] text-[#517068]">Field desk / regional risk overview / 27 Aug 2026 · 14:32 IST</p><h1 className="mt-2 font-display text-4xl font-semibold uppercase leading-[.88] tracking-[-.025em] md:text-[58px]">Catchment intelligence, <em className="font-medium normal-case">made actionable.</em></h1></div>
           <p className="max-w-sm border-l-2 border-[#e97451] pl-3 text-sm leading-5 text-[#46615b]">Prototype model using simulated sensor inputs and documented feature weights. Not a calibrated operational forecast.</p>
         </div>
 
@@ -111,34 +144,35 @@ function Dashboard({ session, guest, onExitGuest }: { session: Session | null; g
         </section>
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(330px,.75fr)]">
-          <div className="overflow-hidden rounded-2xl border border-[#14221f]/15 bg-[#f7f8f1]">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#14221f]/15 px-5 py-4"><div><div className="font-mono text-[10px] uppercase tracking-[.16em] text-[#517068]">Hyper-local risk map</div><div className="mt-1 text-sm text-[#46615b]">Select a settlement to inspect its risk drivers</div></div><div className="flex gap-3 font-mono text-[9px] uppercase tracking-[.09em]"><span><b className="mr-1.5 inline-block size-2 rounded-full bg-[#67aa72]" />Low</span><span><b className="mr-1.5 inline-block size-2 rounded-full bg-[#eac85a]" />Moderate</span><span><b className="mr-1.5 inline-block size-2 rounded-full bg-[#e97451]" />High</span><span><b className="mr-1.5 inline-block size-2 rounded-full bg-[#bd3947]" />Critical</span></div></div>
+          <div className="command-panel overflow-hidden rounded-sm border border-[#14221f]/15 bg-[#f7f8f1]">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#14221f]/15 px-5 py-4"><div><div className="font-mono text-[10px] uppercase tracking-[.16em] text-[#517068]">Hyper-local risk map</div><div className="mt-1 text-sm text-[#46615b]">{activeRegion.hazards} · prototype reference coverage</div></div><div className="flex gap-3 font-mono text-[9px] uppercase tracking-[.09em]"><span><b className="mr-1.5 inline-block size-2 rounded-full bg-[#67aa72]" />Low</span><span><b className="mr-1.5 inline-block size-2 rounded-full bg-[#eac85a]" />Moderate</span><span><b className="mr-1.5 inline-block size-2 rounded-full bg-[#e97451]" />High</span><span><b className="mr-1.5 inline-block size-2 rounded-full bg-[#bd3947]" />Critical</span></div></div>
             <div className="relative h-[410px] overflow-hidden bg-[#b4c5ba]">
-              <MapContainer center={[31.92, 77.2]} zoom={11} scrollWheelZoom className="h-full w-full" aria-label="Interactive map of the Kullu valley">
+              <MapContainer center={activeRegion.center} zoom={9} scrollWheelZoom className="h-full w-full" aria-label={`Interactive map of ${activeRegion.name}`}>
+                <MapViewport center={activeRegion.center} />
                 <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {ranked.map((v) => { const isSelected = selected.name === v.name; const color = riskColor[v.risk.level]; return <Circle key={`${v.name}-zone`} center={[v.lat, v.lng]} radius={isSelected ? 1550 : 1150} pathOptions={{ color, fillColor: color, fillOpacity: isSelected ? 0.23 : 0.13, weight: isSelected ? 2 : 1 }} />; })}
                 {ranked.map((v) => { const isSelected = selected.name === v.name; const color = riskColor[v.risk.level]; return <CircleMarker key={v.name} center={[v.lat, v.lng]} radius={isSelected ? 10 : 7} pathOptions={{ color: "#f7f8f1", fillColor: color, fillOpacity: 1, weight: isSelected ? 4 : 2 }} eventHandlers={{ click: () => setSelectedName(v.name) }}><Tooltip direction="top" offset={[0, -8]} opacity={1}><b>{v.name}</b><br />{v.risk.level} · {v.risk.score}/100<br />Simulated risk overlay</Tooltip></CircleMarker>; })}
               </MapContainer>
-              <div className="map-overlay absolute bottom-4 left-4 z-[500] rounded-lg border border-white/50 bg-[#f7f8f1]/95 px-3 py-2 font-mono text-[9px] uppercase tracking-[.12em] text-[#38534c]">OpenStreetMap base layer<br/><b className="text-[#14221f]">Risk zones · simulated model</b></div>
+              <div className="map-overlay absolute bottom-4 left-4 z-[500] rounded-lg border border-white/50 bg-[#f7f8f1]/95 px-3 py-2 font-mono text-[9px] uppercase tracking-[.12em] text-[#38534c]">OpenStreetMap base layer<br/><b className="text-[#14221f]">{activeRegion.name} · simulated model</b></div>
             </div>
             <div className="grid border-t border-[#14221f]/15 md:grid-cols-[1fr_auto]">
-              <div className="p-5"><div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.15em] text-[#517068]"><Icon name="pin" /> Selected location</div><div className="mt-2 flex flex-wrap items-baseline gap-x-3"><h2 className="font-display text-3xl tracking-[-.04em]">{selected.name}</h2><span className="font-mono text-[10px] uppercase tracking-[.12em] text-[#517068]">{selected.ward} · Kullu</span><RiskPill level={risk.level} /></div><p className="mt-2 max-w-xl text-sm leading-5 text-[#46615b]">Rainfall has intensified across the upper catchment. Elevation {selected.elevation.toLocaleString()} m · slope {selected.slope}° · {selected.history} historical-event placeholders in the simulation profile.</p></div>
+              <div className="p-5"><div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.15em] text-[#517068]"><Icon name="pin" /> Selected location</div><div className="mt-2 flex flex-wrap items-baseline gap-x-3"><h2 className="font-display text-3xl tracking-[-.04em]">{selected.name}</h2><span className="font-mono text-[10px] uppercase tracking-[.12em] text-[#517068]">{selected.ward} · {activeRegion.name}</span><RiskPill level={risk.level} /></div><p className="mt-2 max-w-xl text-sm leading-5 text-[#46615b]">Rainfall has intensified across the upper catchment. Elevation {selected.elevation.toLocaleString()} m · slope {selected.slope}° · {selected.history} historical-event placeholders in the simulation profile.</p></div>
               <div className="flex items-center gap-7 border-t border-[#14221f]/15 px-5 py-4 font-mono text-[10px] uppercase tracking-[.1em] md:border-l md:border-t-0"><span>Flood <b className="block pt-1 text-base text-[#bd3947]">{risk.flood}%</b></span><span>Landslide <b className="block pt-1 text-base text-[#e97451]">{risk.landslide}%</b></span></div>
             </div>
           </div>
 
-          <aside className="rounded-2xl border border-[#14221f]/15 bg-[#183d35] p-5 text-[#f4f5ed]">
+          <aside className="scenario-panel rounded-sm border border-[#14221f]/15 bg-[#183d35] p-5 text-[#f4f5ed]">
             <div className="flex items-start justify-between"><div><div className="font-mono text-[10px] uppercase tracking-[.16em] text-[#a9c2ba]">Scenario controls</div><h2 className="mt-2 font-display text-3xl tracking-[-.04em]">Test the next hour.</h2></div><span className="rounded-full bg-[#caef47] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[.1em] text-[#183d35]">Interactive</span></div>
-            <label className="mt-7 block font-mono text-[10px] uppercase tracking-[.12em] text-[#c0d1cb]">Settlement<select value={selectedName} onChange={(e) => setSelectedName(e.target.value)} className="mt-2 w-full rounded-lg border border-white/20 bg-[#102a25] px-3 py-3 font-sans text-sm text-white outline-none focus:border-[#caef47]">{villages.map((v) => <option key={v.name}>{v.name}</option>)}</select></label>
+            <label className="mt-7 block font-mono text-[10px] uppercase tracking-[.12em] text-[#c0d1cb]">Mountain region<select value={selectedRegion} onChange={(e) => { const next = e.target.value; setSelectedRegion(next); setSelectedName(villages.find((v) => v.region === next)?.name ?? ""); setRainOffset(0); setSoilOffset(0); }} className="mt-2 w-full rounded-lg border border-white/20 bg-[#102a25] px-3 py-3 font-sans text-sm text-white outline-none focus:border-[#caef47]">{regions.map((region) => <option key={region.name} value={region.name}>{region.name} · {region.country}</option>)}</select></label><label className="mt-4 block font-mono text-[10px] uppercase tracking-[.12em] text-[#c0d1cb]">Reference location<select value={selectedName} onChange={(e) => setSelectedName(e.target.value)} className="mt-2 w-full rounded-lg border border-white/20 bg-[#102a25] px-3 py-3 font-sans text-sm text-white outline-none focus:border-[#caef47]">{regionVillages.map((v) => <option key={v.name}>{v.name}</option>)}</select></label>
             <Range label="Rainfall change" value={rainOffset} min={-20} max={35} suffix=" mm/h" onChange={setRainOffset} />
             <Range label="Soil moisture change" value={soilOffset} min={-15} max={20} suffix=" %" onChange={setSoilOffset} />
-            <div className="mt-7 border-t border-white/15 pt-5"><div className="flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-[.12em] text-[#a9c2ba]">Predicted condition</span><RiskPill level={risk.level} /></div><p className="mt-3 text-sm leading-5 text-[#d7e1dc]">{action}</p><button onClick={queueAlert} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#caef47] px-4 py-3 font-mono text-[11px] font-bold uppercase tracking-[.11em] text-[#102a25] transition hover:bg-[#dcff65]">{sent ? "Alert queued for review" : guest ? "Keep alert in guest session" : "Queue warning for review"}<Icon name="arrow" /></button>{sent && <p className="mt-2 text-center font-mono text-[9px] uppercase tracking-[.1em] text-[#caef47]">{guest ? "Saved in this browser only · no public message sent" : "Saved to your responder workspace · no public message sent"}</p>}<button onClick={generateBriefing} disabled={briefingLoading} className="mt-3 w-full rounded-lg border border-white/25 px-4 py-3 font-mono text-[10px] uppercase tracking-[.1em] text-[#f4f5ed] hover:bg-white/10 disabled:opacity-50">{briefingLoading ? "Preparing briefing…" : "Generate AI briefing"}</button>{briefing && <p className="mt-3 border-l border-[#caef47] pl-3 text-xs leading-5 text-[#d7e1dc] whitespace-pre-line">{briefing}</p>}</div>
+            <div className="mt-7 border-t border-white/15 pt-5"><div className="flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-[.12em] text-[#a9c2ba]">Predicted condition</span><RiskPill level={risk.level} /></div><p className="mt-3 text-sm leading-5 text-[#d7e1dc]">{action}</p><button onClick={queueAlert} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#caef47] px-4 py-3 font-mono text-[11px] font-bold uppercase tracking-[.11em] text-[#102a25] transition hover:bg-[#dcff65]">{sent ? "Alert queued for review" : guest ? "Keep alert in guest session" : "Queue warning for review"}<Icon name="arrow" /></button>{sent && <p className="mt-2 text-center font-mono text-[9px] uppercase tracking-[.1em] text-[#caef47]">{guest ? "Saved in this browser only · no public message sent" : "Saved to your responder workspace · no public message sent"}</p>}<button onClick={generateBriefing} disabled={briefingLoading} className="mt-3 w-full rounded-lg border border-white/25 px-4 py-3 font-mono text-[10px] uppercase tracking-[.1em] text-[#f4f5ed] hover:bg-white/10 disabled:opacity-50">{briefingLoading ? "Preparing AI report…" : "Generate risk explanation"}</button>{briefing && <p className="mt-3 border-l border-[#caef47] pl-3 text-xs leading-5 text-[#d7e1dc] whitespace-pre-line">{briefing}</p>}</div>
           </aside>
         </section>
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
-          <div className="rounded-2xl border border-[#14221f]/15 bg-[#f7f8f1] p-5"><div className="flex items-end justify-between"><div><div className="font-mono text-[10px] uppercase tracking-[.16em] text-[#517068]">Live sensor network</div><h2 className="mt-1 font-display text-2xl tracking-[-.035em]">Field telemetry</h2></div><span className="font-mono text-[10px] uppercase tracking-[.1em] text-[#517068]">3 / 3 reporting</span></div><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[600px] text-left"><thead className="font-mono text-[9px] uppercase tracking-[.12em] text-[#517068]"><tr><th className="pb-3 font-medium">Sensor / location</th><th className="pb-3 font-medium">Rain</th><th className="pb-3 font-medium">Soil</th><th className="pb-3 font-medium">Water</th><th className="pb-3 font-medium">Battery</th><th className="pb-3 font-medium">Updated</th></tr></thead><tbody>{sensors.map((s) => <tr key={s.id} className="border-t border-[#14221f]/10 text-sm"><td className="py-3"><b className="font-mono text-[11px]">{s.id}</b><span className="ml-2 text-[#517068]">{s.place}</span></td><td>{s.rain}</td><td>{s.soil}</td><td>{s.water}</td><td><span className="inline-block h-1.5 w-12 overflow-hidden rounded-full bg-[#dbe2dc]"><i className="block h-full bg-[#3b8d70]" style={{ width: `${s.battery}%` }} /></span></td><td className="font-mono text-[10px] text-[#517068]">{s.updated}</td></tr>)}</tbody></table></div></div>
-          <div className="rounded-2xl border border-[#14221f]/15 bg-[#f7f8f1] p-5"><div className="font-mono text-[10px] uppercase tracking-[.16em] text-[#517068]">Active alerts</div><h2 className="mt-1 font-display text-2xl tracking-[-.035em]">Response board</h2><div className="mt-4 space-y-3">{ranked.slice(0, 3).map((v) => <div key={v.name} className="flex gap-3 border-t border-[#14221f]/10 pt-3"><div className={`mt-1 size-2 shrink-0 rounded-full bg-${v.risk.level.toLowerCase()}`} /><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><b className="text-sm">{v.name}</b><span className="font-mono text-[10px] text-[#517068]">{v.risk.lead} MIN</span></div><p className="mt-1 text-xs leading-4 text-[#517068]">{v.risk.level === "CRITICAL" ? "Evacuation review and bridge closure." : "Monitor stream crossings; notify ward team."}</p></div><RiskPill level={v.risk.level} /></div>)}</div></div>
+          <div className="data-panel rounded-sm border border-[#14221f]/15 bg-[#f7f8f1] p-5"><div className="flex items-end justify-between"><div><div className="font-mono text-[10px] uppercase tracking-[.16em] text-[#517068]">Live sensor network</div><h2 className="mt-1 font-display text-3xl font-semibold uppercase tracking-[-.02em]">Field telemetry</h2></div><span className="font-mono text-[10px] uppercase tracking-[.1em] text-[#517068]">3 / 3 reporting</span></div><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[600px] text-left"><thead className="font-mono text-[9px] uppercase tracking-[.12em] text-[#517068]"><tr><th className="pb-3 font-medium">Sensor / location</th><th className="pb-3 font-medium">Rain</th><th className="pb-3 font-medium">Soil</th><th className="pb-3 font-medium">Water</th><th className="pb-3 font-medium">Battery</th><th className="pb-3 font-medium">Updated</th></tr></thead><tbody>{sensors.map((s) => <tr key={s.id} className="border-t border-[#14221f]/10 text-sm"><td className="py-3"><b className="font-mono text-[11px]">{s.id}</b><span className="ml-2 text-[#517068]">{s.place}</span></td><td>{s.rain}</td><td>{s.soil}</td><td>{s.water}</td><td><span className="inline-block h-1.5 w-12 overflow-hidden rounded-full bg-[#dbe2dc]"><i className="block h-full bg-[#3b8d70]" style={{ width: `${s.battery}%` }} /></span></td><td className="font-mono text-[10px] text-[#517068]">{s.updated}</td></tr>)}</tbody></table></div></div>
+          <div className="data-panel rounded-sm border border-[#14221f]/15 bg-[#f7f8f1] p-5"><div className="font-mono text-[10px] uppercase tracking-[.16em] text-[#517068]">Active alerts</div><h2 className="mt-1 font-display text-3xl font-semibold uppercase tracking-[-.02em]">Response board</h2><div className="mt-4 space-y-3">{ranked.slice(0, 3).map((v) => <div key={v.name} className="flex gap-3 border-t border-[#14221f]/10 pt-3"><div className={`mt-1 size-2 shrink-0 rounded-full bg-${v.risk.level.toLowerCase()}`} /><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><b className="text-sm">{v.name}</b><span className="font-mono text-[10px] text-[#517068]">{v.risk.lead} MIN</span></div><p className="mt-1 text-xs leading-4 text-[#517068]">{v.risk.level === "CRITICAL" ? "Evacuation review and bridge closure." : "Monitor stream crossings; notify ward team."}</p></div><RiskPill level={v.risk.level} /></div>)}</div></div>
         </section>
       </div>
     </main>
@@ -152,7 +186,7 @@ function LoginScreen({ onGuest }: { onGuest: () => void }) {
 }
 
 function Metric({ label, value, unit, note, icon }: { label: string; value: React.ReactNode; unit?: string; note: string; icon?: "drop" | "layers" | "clock" }) {
-  return <div className="min-h-32 bg-[#f7f8f1] p-4"><div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.13em] text-[#517068]"><span>{label}</span>{icon && <span className="size-4 text-[#3b8d70]"><Icon name={icon} /></span>}</div><div className="mt-4 flex items-baseline gap-1 font-display text-[32px] leading-none tracking-[-.04em]">{value}{unit && <span className="font-sans text-sm font-medium tracking-normal text-[#46615b]">{unit}</span>}</div><p className="mt-3 text-xs text-[#517068]">{note}</p></div>;
+  return <div className="metric-card"><div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.13em] text-[#517068]"><span>{label}</span>{icon && <span className="size-4 text-[#3b8d70]"><Icon name={icon} /></span>}</div><div className="mt-4 flex items-baseline gap-1 font-display text-[39px] font-semibold leading-none tracking-[-.03em]">{value}{unit && <span className="font-sans text-sm font-medium tracking-normal text-[#46615b]">{unit}</span>}</div><p className="mt-3 text-xs text-[#517068]">{note}</p></div>;
 }
 
 function Range({ label, value, min, max, suffix, onChange }: { label: string; value: number; min: number; max: number; suffix: string; onChange: (n: number) => void }) {
